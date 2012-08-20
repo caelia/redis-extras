@@ -1,0 +1,5 @@
+((license "BSD")
+ (category db)
+ (depends redis-client)
+ (author "Matt Gushee")
+ (synopsis "High-level extra functionality for the Redis client."))

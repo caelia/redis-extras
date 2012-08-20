@@ -1,0 +1,6 @@
+(compile -s -d0 -O3 redis-extras.scm -j redis-extras)
+(compile -s -d0 -O3 redis-extras.import.scm)
+(install-extension
+  'redis-extras
+  '("redis-extras.so" "redis-extras.import.so")
+  '((version "0.1")))

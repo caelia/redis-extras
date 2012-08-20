@@ -1,0 +1,2 @@
+This is a simple library to do a simple job: its purpose is to allocate
+Redis databases to different apps so as to avoid namespace collisions.
