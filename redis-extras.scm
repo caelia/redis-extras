@@ -5,12 +5,12 @@
 (use srfi-69)
 
 (module redis-extras
-        ( redex:init
-          redex:allocate-db
-          redex:deallocate-db
-          redex:make-hash-proxy
-          redex:hash-proxy->hash-table
-          redex:hash-table->hash-proxy )
+        ( redex-init
+          allocate-db
+          deallocate-db
+          make-hash-proxy
+          hash-proxy->hash-table
+          hash-table->hash-proxy )
 
         (import scheme)
         (import chicken)
@@ -56,7 +56,7 @@
     (and (= exists 1)
          (car (redis-hget app-id "db-index")))))
 
-(define (redex:allocate-db app-id)
+(define (allocate-db app-id)
   (redis-select "0")
   (let* ((allocated-dbs (redis-smembers "dbs-in-use"))
          (available-index (first-available-index allocated-dbs)))
@@ -67,7 +67,7 @@
           (redis-sadd "dbs-in-use" index)))
       (abort "No dbs available."))))
 
-(define (redex:deallocate-db app-id)
+(define (deallocate-db app-id)
   (let ((index (get-db-index app-id)))
     (print "INDEX: " index)
     (redis-multi)
@@ -86,7 +86,7 @@
       (redis-select idx)
       (thunk))))
 
-(define (redex:init #!optional app-id #!key (host (*default-host*)) (port (*default-port*)))
+(define (redex-init #!optional app-id #!key (host (*default-host*)) (port (*default-port*)))
   (when (not (*connected*))
     (redis-connect host port)
     (*connected* #t))
@@ -110,7 +110,7 @@
 ;;; ============================================================================
 ;;; --  PROXY OBJECTS  ---------------------------------------------------------
 
-(define (redex:make-hash-proxy tag)
+(define (make-hash-proxy tag)
   (lambda (cmd . args)
     (case cmd
       ((key)
@@ -124,12 +124,12 @@
              (f (car args)))
          (for-each f fields))))))
 
-(define (redex:hash-table->hash-proxy key ht)
+(define (hash-table->hash-proxy key ht)
   (let ((hp (make-hash-proxy key)))
     (hash-table-for-each ht (lambda (k v) (hp 'set k v)))
     hp))
 
-(define (redex:hash-proxy->hash-table hp)
+(define (hash-proxy->hash-table hp)
   (let ((key (hp 'key))
         (ht (make-hash-table)))
     (hp 'for-each
