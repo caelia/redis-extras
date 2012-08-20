@@ -5,11 +5,12 @@
 (use srfi-69)
 
 (module redis-extras
-        ( init
-          with-db-select
-          make-hash-proxy
-          hash-proxy->hash-table
-          hash-table->hash-proxy )
+        ( redex:init
+          redex:allocate-db
+          redex:deallocate-db
+          redex:make-hash-proxy
+          redex:hash-proxy->hash-table
+          redex:hash-table->hash-proxy )
 
         (import scheme)
         (import chicken)
@@ -55,19 +56,18 @@
     (and (= exists 1)
          (car (redis-hget app-id "db-index")))))
 
-(define (allocate-db app-id)
+(define (redex:allocate-db app-id)
   (redis-select "0")
   (let* ((allocated-dbs (redis-smembers "dbs-in-use"))
          (available-index (first-available-index allocated-dbs)))
     (if available-index
       (let ((index (number->string available-index)))
-        (redis-multi)
-        (redis-hset app-id "db-index" index)
-        (redis-sadd "dbs-in-use" index)
-        (redis-exec))
+        (redis-transaction
+          (redis-hset app-id "db-index" index)
+          (redis-sadd "dbs-in-use" index)))
       (abort "No dbs available."))))
 
-(define (deallocate-db app-id)
+(define (redex:deallocate-db app-id)
   (let ((index (get-db-index app-id)))
     (print "INDEX: " index)
     (redis-multi)
@@ -86,7 +86,7 @@
       (redis-select idx)
       (thunk))))
 
-(define (init #!optional app-id #!key (host (*default-host*)) (port (*default-port*)))
+(define (redex:init #!optional app-id #!key (host (*default-host*)) (port (*default-port*)))
   (when (not (*connected*))
     (redis-connect host port)
     (*connected* #t))
@@ -94,10 +94,14 @@
   (let ((in-use-exists (redis-exists "dbs-in-use")))
     (when (= (car in-use-exists) 0)
       (redis-sadd "dbs-in-use" "0"))
-    (when app-id
-      (*current-app* app-id)
-      (or (get-db-index app-id)
-        (allocate-db app-id)))))
+    (if app-id
+      (begin
+        (*current-app* app-id)
+        (let ((index (or (get-db-index app-id)
+                         (allocate-db app-id))))
+          (redis-select index)
+          index))
+      #t)))
 
 ;;; ============================================================================
 
@@ -106,7 +110,7 @@
 ;;; ============================================================================
 ;;; --  PROXY OBJECTS  ---------------------------------------------------------
 
-(define (make-hash-proxy tag)
+(define (redex:make-hash-proxy tag)
   (lambda (cmd . args)
     (case cmd
       ((key)
@@ -120,12 +124,12 @@
              (f (car args)))
          (for-each f fields))))))
 
-(define (hash-table->hash-proxy key ht)
+(define (redex:hash-table->hash-proxy key ht)
   (let ((hp (make-hash-proxy key)))
     (hash-table-for-each ht (lambda (k v) (hp 'set k v)))
     hp))
 
-(define (hash-proxy->hash-table hp)
+(define (redex:hash-proxy->hash-table hp)
   (let ((key (hp 'key))
         (ht (make-hash-table)))
     (hp 'for-each
