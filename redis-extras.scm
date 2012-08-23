@@ -9,6 +9,9 @@
           allocate-db
           deallocate-db
           make-hash-proxy
+          hash-proxy-ref
+          hash-proxy-set!
+          hash-proxy-for-each
           hash-proxy->hash-table
           hash-table->hash-proxy )
 
@@ -39,7 +42,7 @@
 
 
 ;;; ============================================================================
-;;; ----------------------------------------------------------------------------
+;;; --  AUTOMATIC DB ALLOCATION  -----------------------------------------------
 
 (define (first-available-index indices)
   (let ((indices* (map string->number indices))
@@ -122,7 +125,20 @@
       ((for-each)
        (let ((fields (redis-hkeys tag))
              (f (car args)))
-         (for-each f fields))))))
+         (for-each
+           (lambda (k)
+             (let ((v (redis-hget tag k)))
+               (f k v)))
+           fields))))))
+
+(define (hash-proxy-ref hp key)
+  (hp 'get key))
+
+(define (hash-proxy-set! hp key value)
+  (hp 'set! key value))
+
+(define (hash-proxy-for-each hp f)
+  (hp 'for-each f))
 
 (define (hash-table->hash-proxy key ht)
   (let ((hp (make-hash-proxy key)))
@@ -140,6 +156,8 @@
 
 
 ;;; ============================================================================
+
+
 
 )
 
