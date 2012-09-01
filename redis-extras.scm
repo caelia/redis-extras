@@ -4,16 +4,16 @@
 (use redis-client)
 (use srfi-69)
 
-(module redis-extras
-        ( redex-init
-          allocate-db
-          deallocate-db
-          make-hash-proxy
-          hash-proxy-ref
-          hash-proxy-set!
-          hash-proxy-for-each
-          hash-proxy->hash-table
-          hash-table->hash-proxy )
+(module redis-extras *
+;         ( redex-init
+;           allocate-db
+;           deallocate-db
+;           make-hash-proxy
+;           hash-proxy-ref
+;           hash-proxy-set!
+;           hash-proxy-for-each
+;           hash-proxy->hash-table
+;           hash-table->hash-proxy )
 
         (import scheme)
         (import chicken)
@@ -80,19 +80,18 @@
       (let ((index (number->string available-index)))
         (redis-transaction
           (redis-hset app-id "db-index" index)
-          (redis-sadd "dbs-in-use" index)))
+          (redis-sadd "dbs-in-use" index))
+        index)
       (abort "No dbs available."))))
 
 (define (deallocate-db app-id)
   (let ((index (get-db-index app-id)))
-    (print "INDEX: " index)
-    (redis-multi)
-    (redis-select index)
-    (redis-flushdb)
-    (redis-select "0")
-    (redis-hdel app-id "db-index")
-    (redis-srem "dbs-in-use" index)
-    (redis-exec)))
+    (redis-transaction
+      (redis-select index)
+      (redis-flushdb)
+      (redis-select "0")
+      (redis-hdel app-id "db-index")
+      (redis-srem "dbs-in-use" index))))
 
 (define (with-db-select thunk)
   (let ((app (*current-app*)))
