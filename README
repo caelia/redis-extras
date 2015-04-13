@@ -1,2 +1,1 @@
-This is a simple library to do a simple job: its purpose is to allocate
-Redis databases to different apps so as to avoid namespace collisions.
+THIS PROJECT IS ON HIATUS! It is not clear that it is useful enough to justify maintaining a separate library, and most of its functionality has been folded into Sukkiri (also hosted in my Github space).
